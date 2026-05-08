@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StudySync — Subjects</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+  <nav>
+    <div>
+      <a href="dashboard.html">🏠 Home</a>
+      <a href="tasks.html">📋 Tasks</a>
+      <a href="subjects.html">📚 Subjects</a>
+      <a href="timer.html">⏱ Timer</a>
+      <a href="deadlines.html">⏰ Deadlines</a>
+    </div>
+    <button onclick="logout()" style="padding:6px 14px;font-size:13px;">Logout</button>
+  </nav>
+
+  <div class="container">
+    <h1>📚 Subject Manager</h1>
+
+    <!-- Add Subject Form -->
+    <div style="background:#F9F9F9;padding:20px;border-radius:8px;margin-bottom:24px;">
+      <h2>Add New Subject</h2>
+      <label>Subject Name</label>
+      <input type="text" id="subject-name" placeholder="e.g. Networking" />
+      <label>Color Tag</label>
+      <input type="color" id="subject-color" value="#2E4057"
+        style="width:60px;padding:4px;height:40px;cursor:pointer;" />
+      <button onclick="addSubject()" style="margin-top:12px;">+ Add Subject</button>
+    </div>
+
+    <!-- Subject List -->
+    <h2>Your Subjects</h2>
+    <ul id="subject-list">
+      <li style="color:#999;">No subjects yet. Add one above!</li>
+    </ul>
+  </div>
+  
+  <script src="../js/main.js"></script>
+  <script>
+  const API = 'http://localhost:5000/api';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '../index.html';
+
+  let subjects = [];
+
+  async function loadSubjects() {
+    const res = await fetch(`${API}/subjects`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    subjects = await res.json();
+    renderSubjects();
+  }
+
+  async function addSubject() {
+    const subject_name = document.getElementById('subject-name').value.trim();
+    const color_tag    = document.getElementById('subject-color').value;
+    if (!subject_name) return showToast('Please enter a subject name!', 'warning');
+
+    await fetch(`${API}/subjects`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ subject_name, color_tag })
+    });
+    document.getElementById('subject-name').value = '';
+    loadSubjects();
+  }
+
+  async function deleteSubject(id) {
+    await fetch(`${API}/subjects/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    loadSubjects();
+  }
+
+  function renderSubjects() {
+    const list = document.getElementById('subject-list');
+    if (subjects.length === 0) {
+      list.innerHTML = '<li style="color:#999;">No subjects yet. Add one above!</li>';
+      return;
+    }
+    list.innerHTML = subjects.map(s => `
+      <li>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="width:16px;height:16px;border-radius:50%;
+            background:${s.color_tag};display:inline-block;"></span>
+          <span>${s.subject_name}</span>
+        </div>
+        <button class="delete-btn" onclick="deleteSubject(${s.subject_id})">🗑 Delete</button>
+      </li>`).join('');
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '../index.html';
+  }
+
+  loadSubjects();
+</script>
+
+</body>
+</html>

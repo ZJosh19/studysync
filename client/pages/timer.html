@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StudySync — Timer</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+  <nav>
+    <div>
+      <a href="dashboard.html">🏠 Home</a>
+      <a href="tasks.html">📋 Tasks</a>
+      <a href="subjects.html">📚 Subjects</a>
+      <a href="timer.html">⏱ Timer</a>
+      <a href="deadlines.html">⏰ Deadlines</a>
+    </div>
+    <button onclick="logout()" style="padding:6px 14px;font-size:13px;">Logout</button>
+  </nav>
+
+  <div class="container" style="text-align:center;">
+    <h1>⏱ Study Timer</h1>
+
+    <!-- Subject selector -->
+    <div style="margin:20px 0;">
+      <label style="font-weight:bold;">Select Subject</label>
+      <select id="timer-subject" style="max-width:300px;margin:10px auto;">
+        <option value="">-- Select Subject --</option>
+      </select>
+    </div>
+
+    <!-- Timer display -->
+    <div style="background:#2E4057;color:white;border-radius:16px;
+                padding:40px;margin:24px auto;max-width:300px;">
+      <h1 style="font-size:64px;color:white;margin:0;" id="timer-display">
+        00:00:00
+      </h1>
+      <p style="color:#90CAF9;margin-top:8px;" id="timer-status">
+        Ready to study!
+      </p>
+    </div>
+
+    <!-- Controls -->
+    <div style="display:flex;justify-content:center;gap:16px;margin-top:16px;">
+      <button id="start-btn" onclick="startTimer()"
+        style="background:#2E7D32;padding:12px 30px;font-size:16px;">
+        ▶ Start Session
+      </button>
+      <button id="stop-btn" onclick="stopTimer()"
+        style="background:#C62828;padding:12px 30px;font-size:16px;display:none;">
+        ⏹ End Session
+      </button>
+    </div>
+
+    <!-- Session History -->
+    <div style="margin-top:40px;text-align:left;">
+      <h2>Session History</h2>
+      <ul id="session-list">
+        <li style="color:#999;">No sessions yet.</li>
+      </ul>
+    </div>
+  </div>
+  
+  <script src="../js/main.js"></script>
+
+  <script>
+  const API = 'http://localhost:5000/api';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '../index.html';
+
+  let timerInterval = null;
+  let seconds = 0;
+  let startTime = null;
+
+  // Load subjects into dropdown
+  async function loadSubjects() {
+    const res = await fetch(`${API}/subjects`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const subjects = await res.json();
+    const select = document.getElementById('timer-subject');
+    subjects.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.subject_id;
+      opt.textContent = s.subject_name;
+      select.appendChild(opt);
+    });
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function updateDisplay() {
+    seconds++;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    document.getElementById('timer-display').textContent =
+      `${pad(h)}:${pad(m)}:${pad(s)}`;
+  }
+
+  function startTimer() {
+    const subject_id = document.getElementById('timer-subject').value;
+    if (!subject_id) return showToast('Please select a subject first!', 'warning');
+    seconds = 0;
+    startTime = new Date();
+    timerInterval = setInterval(updateDisplay, 1000);
+    document.getElementById('start-btn').style.display = 'none';
+    document.getElementById('stop-btn').style.display = 'inline-block';
+    const subjectText = document.getElementById('timer-subject')
+      .options[document.getElementById('timer-subject').selectedIndex].text;
+    document.getElementById('timer-status').textContent = `Studying: ${subjectText}`;
+  }
+
+  async function stopTimer() {
+    clearInterval(timerInterval);
+    const subject_id   = document.getElementById('timer-subject').value;
+    const duration_mins = Math.floor(seconds / 60);
+    const end_time     = new Date();
+
+    // Save session to backend
+    await fetch(`${API}/sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        subject_id,
+        start_time: startTime.toISOString(),
+        end_time:   end_time.toISOString(),
+        duration_mins
+      })
+    });
+
+    document.getElementById('start-btn').style.display = 'inline-block';
+    document.getElementById('stop-btn').style.display  = 'none';
+    document.getElementById('timer-display').textContent = '00:00:00';
+    document.getElementById('timer-status').textContent  = 'Ready to study!';
+    seconds = 0;
+    loadSessions();
+    showToast(`Session saved! You studied for ${duration_mins} minute(s).`, 'success');
+  }
+
+  async function loadSessions() {
+    const res = await fetch(`${API}/sessions`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const sessions = await res.json();
+    const list = document.getElementById('session-list');
+    if (sessions.length === 0) {
+      list.innerHTML = '<li style="color:#999;">No sessions yet.</li>';
+      return;
+    }
+    list.innerHTML = sessions.map(s => `
+      <li>
+        <span>📚 ${s.subject_name} — ${s.duration_mins} min</span>
+        <span style="color:#999;font-size:13px;">${s.created_at}</span>
+      </li>`).join('');
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '../index.html';
+  }
+
+  loadSubjects();
+  loadSessions();
+</script>
+
+</body>
+</html>

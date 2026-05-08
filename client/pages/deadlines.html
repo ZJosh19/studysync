@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StudySync — Deadlines</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+  <nav>
+    <div>
+      <a href="dashboard.html">🏠 Home</a>
+      <a href="tasks.html">📋 Tasks</a>
+      <a href="subjects.html">📚 Subjects</a>
+      <a href="timer.html">⏱ Timer</a>
+      <a href="deadlines.html">⏰ Deadlines</a>
+    </div>
+    <button onclick="logout()" style="padding:6px 14px;font-size:13px;">Logout</button>
+  </nav>
+
+  <div class="container">
+    <h1>⏰ Deadline Tracker</h1>
+
+    <!-- Add Deadline Form -->
+    <div style="background:#F9F9F9;padding:20px;border-radius:8px;margin-bottom:24px;">
+      <h2>Add New Deadline</h2>
+      <label>Title</label>
+      <input type="text" id="deadline-title" placeholder="e.g. Submit Lab Report" />
+      <label>Subject</label>
+      <select id="deadline-subject">
+        <option value="">-- Select Subject --</option>
+      </select>
+      <label>Due Date</label>
+      <input type="date" id="deadline-date" />
+      <button onclick="addDeadline()" style="margin-top:8px;">+ Add Deadline</button>
+    </div>
+
+    <!-- Deadline List -->
+    <h2>Upcoming Deadlines</h2>
+    <ul id="deadline-list">
+      <li style="color:#999;">No deadlines yet. Add one above!</li>
+    </ul>
+  </div>
+  <script src="../js/main.js"></script>
+  <script>
+  const API = 'http://localhost:5000/api';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '../index.html';
+
+  let deadlines = [];
+
+  // Load subjects into dropdown
+  async function loadSubjects() {
+    const res = await fetch(`${API}/subjects`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const subjects = await res.json();
+    const select = document.getElementById('deadline-subject');
+    subjects.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.subject_id;
+      opt.textContent = s.subject_name;
+      select.appendChild(opt);
+    });
+  }
+
+  // Load deadlines from API
+  async function loadDeadlines() {
+    const res = await fetch(`${API}/deadlines`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    deadlines = await res.json();
+    renderDeadlines();
+  }
+
+  async function addDeadline() {
+    const title      = document.getElementById('deadline-title').value.trim();
+    const subject_id = document.getElementById('deadline-subject').value;
+    const due_date   = document.getElementById('deadline-date').value;
+    if (!title)    return showToast('Please enter a deadline title!', 'warning');
+    if (!due_date) return showToast('Please select a due date!', 'warning');
+
+    await fetch(`${API}/deadlines`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ title, subject_id: subject_id || null, due_date })
+    });
+    document.getElementById('deadline-title').value = '';
+    document.getElementById('deadline-date').value  = '';
+    loadDeadlines();
+  }
+
+  async function toggleDeadline(id, currentDone, title, due_date) {
+    await fetch(`${API}/deadlines/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ title, due_date, is_done: currentDone ? 0 : 1 })
+    });
+    loadDeadlines();
+  }
+
+  async function deleteDeadline(id) {
+    await fetch(`${API}/deadlines/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    loadDeadlines();
+  }
+
+  function renderDeadlines() {
+    const list = document.getElementById('deadline-list');
+    if (deadlines.length === 0) {
+      list.innerHTML = '<li style="color:#999;">No deadlines yet. Add one above!</li>';
+      return;
+    }
+    list.innerHTML = deadlines.map(d => {
+      const overdue = !d.is_done && new Date(d.due_date) < new Date();
+      return `
+      <li style="opacity:${d.is_done ? '0.5' : '1'}">
+        <div>
+          <input type="checkbox" ${d.is_done ? 'checked' : ''}
+            onchange="toggleDeadline(${d.deadline_id}, ${d.is_done}, '${d.title}', '${d.due_date}')" />
+          <span style="margin-left:8px;
+            text-decoration:${d.is_done ? 'line-through' : 'none'};
+            color:${overdue ? '#e53935' : 'inherit'}">
+            ${d.title}
+          </span>
+          <span style="margin-left:10px;font-size:11px;color:#888;">
+            ${d.subject_name || ''} • Due: ${d.due_date}
+            ${overdue ? ' ⚠ Overdue' : ''}
+          </span>
+        </div>
+        <button class="delete-btn" onclick="deleteDeadline(${d.deadline_id})">🗑 Delete</button>
+      </li>`;
+    }).join('');
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '../index.html';
+  }
+
+  loadSubjects();
+  loadDeadlines();
+</script>256
+
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StudySync — Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+
+  <nav>
+    <div>
+      <a href="dashboard.html">🏠 Home</a>
+      <a href="tasks.html">📋 Tasks</a>
+      <a href="subjects.html">📚 Subjects</a>
+      <a href="timer.html">⏱ Timer</a>
+      <a href="deadlines.html">⏰ Deadlines</a>
+    </div>
+    <button onclick="logout()" style="padding:6px 14px;font-size:13px;">Logout</button>
+  </nav>
+
+  <div class="container">
+    <h1>Welcome, <span id="username-display">Student</span>! 👋</h1>
+
+    <!-- Quote of the day -->
+    <div style="background:#EEF2FF;padding:16px;border-radius:8px;margin:20px 0;">
+      <p style="font-style:italic;color:#555;" id="quote-text">Loading quote...</p>
+    </div>
+
+    <!-- Summary cards -->
+    <h2>Your Summary</h2>
+    <div style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap;">
+      <div style="flex:1;background:#E3F2FD;padding:20px;border-radius:8px;text-align:center;">
+        <h3 id="tasks-done">0</h3>
+        <p>Tasks Completed</p>
+      </div>
+      <div style="flex:1;background:#E8F5E9;padding:20px;border-radius:8px;text-align:center;">
+        <h3 id="tasks-pending">0</h3>
+        <p>Tasks Pending</p>
+      </div>
+      <div style="flex:1;background:#FFF3E0;padding:20px;border-radius:8px;text-align:center;">
+        <h3 id="study-time">0 mins</h3>
+        <p>Total Study Time</p>
+      </div>
+    </div>
+
+    <!-- Upcoming deadlines preview -->
+    <h2 style="margin-top:30px;">Upcoming Deadlines</h2>
+    <ul id="deadlines-preview">
+      <li style="color:#999;">No deadlines yet.</li>
+    </ul>
+  </div>
+
+  <script>
+  const API = 'http://localhost:5000/api';
+  const token = localStorage.getItem('token');
+  if (!token) window.location.href = '../index.html';
+
+  // Display username
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (user) document.getElementById('username-display').textContent = user.username;
+
+  // Fetch quote from our backend proxy
+  async function loadQuote() {
+  try {
+    const res  = await fetch(`${API}/quote`);
+    const data = await res.json();
+    document.getElementById('quote-text').textContent =
+      `"${data[0].q}" — ${data[0].a}`;
+  } catch {
+    document.getElementById('quote-text').textContent =
+      '"Keep pushing forward. You are doing great!"';
+  }
+}
+
+  // Load summary stats
+  async function loadSummary() {
+    const headers = { 'Authorization': `Bearer ${token}` };
+
+    const [tasksRes, sessionsRes, deadlinesRes] = await Promise.all([
+      fetch(`${API}/tasks`,     { headers }),
+      fetch(`${API}/sessions`,  { headers }),
+      fetch(`${API}/deadlines`, { headers }),
+    ]);
+
+    const tasks     = await tasksRes.json();
+    const sessions  = await sessionsRes.json();
+    const deadlines = await deadlinesRes.json();
+
+    // Tasks summary
+    const done    = tasks.filter(t => t.status === 'done').length;
+    const pending = tasks.filter(t => t.status === 'pending').length;
+    document.getElementById('tasks-done').textContent    = done;
+    document.getElementById('tasks-pending').textContent = pending;
+
+    // Total study time
+    const totalMins = sessions.reduce((sum, s) => sum + s.duration_mins, 0);
+    document.getElementById('study-time').textContent = `${totalMins} mins`;
+
+    // Upcoming deadlines preview
+    const upcoming = deadlines.filter(d => !d.is_done).slice(0, 3);
+    const list = document.getElementById('deadlines-preview');
+    if (upcoming.length === 0) {
+      list.innerHTML = '<li style="color:#999;">No upcoming deadlines.</li>';
+    } else {
+      list.innerHTML = upcoming.map(d => `
+        <li>
+          <span>📅 ${d.title}</span>
+          <span style="color:#999;font-size:13px;">Due: ${d.due_date}</span>
+        </li>`).join('');
+    }
+  }
+
+  // Verify token is still valid
+async function verifyToken() {
+  const res = await fetch(`${API}/subjects`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (res.status === 401) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '../index.html';
+  }
+}
+verifyToken();
+
+  function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '../index.html';
+  }
+
+  loadQuote();
+  loadSummary();
+</script>
+
+</body>
+</html>
