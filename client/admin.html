@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StudySync — Admin Panel</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:Arial,sans-serif; background:#0f1923; color:#fff; min-height:100vh; }
+
+    /* ── Login screen ── */
+    .admin-login {
+      display:flex; justify-content:center; align-items:center; height:100vh;
+    }
+    .login-box {
+      background:#1a2535; padding:40px; border-radius:12px;
+      width:380px; border:1px solid #2E4057;
+      box-shadow:0 8px 32px rgba(0,0,0,0.4);
+    }
+    .login-box h1 { font-size:22px; margin-bottom:6px; color:#90CAF9; }
+    .login-box p  { font-size:13px; color:#666; margin-bottom:24px; }
+    .login-box input {
+      width:100%; padding:11px 14px; background:#0f1923;
+      border:1.5px solid #2E4057; border-radius:8px;
+      color:#fff; font-size:14px; margin-bottom:14px;
+    }
+    .login-box input:focus { outline:none; border-color:#90CAF9; }
+    .btn {
+      width:100%; padding:12px; background:#2E4057; color:#fff;
+      border:none; border-radius:8px; font-size:15px;
+      font-weight:bold; cursor:pointer; transition:background 0.2s;
+    }
+    .btn:hover { background:#1a2b3c; }
+    .btn-red   { background:#C62828; }
+    .btn-red:hover { background:#7f1414; }
+
+    /* ── Admin panel ── */
+    #admin-panel { display:none; }
+
+    .topbar {
+      background:#1a2535; padding:16px 28px;
+      display:flex; align-items:center; justify-content:space-between;
+      border-bottom:1px solid #2E4057;
+    }
+    .topbar h1 { font-size:20px; color:#90CAF9; }
+    .topbar span { font-size:13px; color:#666; }
+    .logout-btn {
+      padding:8px 18px; background:#C62828; color:#fff;
+      border:none; border-radius:6px; cursor:pointer; font-size:13px;
+    }
+
+    .tabs {
+      display:flex; gap:0; background:#1a2535;
+      border-bottom:1px solid #2E4057; padding:0 28px;
+    }
+    .tab {
+      padding:14px 24px; cursor:pointer; font-size:13px;
+      color:#888; border-bottom:3px solid transparent;
+      transition:all 0.2s;
+    }
+    .tab:hover  { color:#fff; }
+    .tab.active { color:#90CAF9; border-bottom-color:#90CAF9; }
+
+    .content { padding:28px; }
+
+    /* ── Stats row ── */
+    .stats {
+      display:flex; gap:16px; margin-bottom:28px; flex-wrap:wrap;
+    }
+    .stat-card {
+      flex:1; background:#1a2535; padding:20px 24px;
+      border-radius:10px; border:1px solid #2E4057; min-width:140px;
+    }
+    .stat-card h2 { font-size:32px; color:#90CAF9; }
+    .stat-card p  { font-size:13px; color:#666; margin-top:4px; }
+
+    /* ── Table ── */
+    .table-wrap {
+      background:#1a2535; border-radius:10px;
+      border:1px solid #2E4057; overflow:hidden;
+    }
+    .table-header {
+      padding:16px 20px; display:flex;
+      justify-content:space-between; align-items:center;
+      border-bottom:1px solid #2E4057;
+    }
+    .table-header h3 { font-size:15px; color:#90CAF9; }
+    table { width:100%; border-collapse:collapse; }
+    th {
+      background:#0f1923; padding:12px 16px;
+      font-size:12px; color:#666; text-align:left;
+      text-transform:uppercase; letter-spacing:0.5px;
+    }
+    td { padding:12px 16px; font-size:13px; border-bottom:1px solid #0f1923; }
+    tr:hover td { background:rgba(144,202,249,0.05); }
+    tr:last-child td { border-bottom:none; }
+
+    .badge {
+      padding:3px 10px; border-radius:12px; font-size:11px; font-weight:bold;
+    }
+    .badge-done    { background:#1B5E20; color:#A5D6A7; }
+    .badge-pending { background:#E65100; color:#FFCC80; }
+    .badge-high    { background:#7f1414; color:#FFCDD2; }
+    .badge-medium  { background:#7D4E00; color:#FFE082; }
+    .badge-low     { background:#1a3a1a; color:#A5D6A7; }
+
+    .del-btn {
+      padding:5px 12px; background:#C62828; color:#fff;
+      border:none; border-radius:6px; cursor:pointer;
+      font-size:12px; transition:background 0.2s;
+    }
+    .del-btn:hover { background:#7f1414; }
+
+    .empty { padding:40px; text-align:center; color:#444; font-size:14px; }
+
+    /* ── Toast ── */
+    #toast {
+      position:fixed; top:20px; right:20px;
+      padding:12px 20px; border-radius:8px; font-size:14px;
+      display:none; z-index:9999; animation:slideIn 0.3s ease;
+    }
+    #toast.success { background:#2E7D32; color:#fff; }
+    #toast.error   { background:#C62828; color:#fff; }
+    @keyframes slideIn {
+      from { opacity:0; transform:translateX(40px); }
+      to   { opacity:1; transform:translateX(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Admin Login ── -->
+<div class="admin-login" id="login-screen">
+  <div class="login-box">
+    <h1>🔐 Admin Panel</h1>
+    <p>StudySync — Administrator Access Only</p>
+    <input type="password" id="admin-key" placeholder="Enter admin secret key" />
+    <button class="btn" onclick="adminLogin()">Access Admin Panel</button>
+  </div>
+</div>
+
+<!-- ── Admin Panel ── -->
+<div id="admin-panel">
+  <div class="topbar">
+    <h1>📊 StudySync Admin Panel</h1>
+    <div style="display:flex;align-items:center;gap:20px;">
+      <span id="admin-time"></span>
+      <button class="logout-btn" onclick="adminLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('users')">👥 Users</div>
+    <div class="tab" onclick="switchTab('subjects')">📚 Subjects</div>
+    <div class="tab" onclick="switchTab('tasks')">📋 Tasks</div>
+    <div class="tab" onclick="switchTab('sessions')">⏱ Sessions</div>
+    <div class="tab" onclick="switchTab('deadlines')">⏰ Deadlines</div>
+  </div>
+
+  <div class="content">
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card"><h2 id="stat-users">0</h2><p>Total Users</p></div>
+      <div class="stat-card"><h2 id="stat-subjects">0</h2><p>Total Subjects</p></div>
+      <div class="stat-card"><h2 id="stat-tasks">0</h2><p>Total Tasks</p></div>
+      <div class="stat-card"><h2 id="stat-sessions">0</h2><p>Study Sessions</p></div>
+      <div class="stat-card"><h2 id="stat-deadlines">0</h2><p>Deadlines</p></div>
+    </div>
+
+    <!-- Table area -->
+    <div class="table-wrap">
+      <div class="table-header">
+        <h3 id="table-title">All Users</h3>
+        <span id="table-count" style="color:#666;font-size:13px;"></span>
+      </div>
+      <div id="table-body"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const API = 'https://studysync-api-448w.onrender.com';
+  let adminKey = '';
+  let currentTab = 'users';
+  let allData = { users:[], subjects:[], tasks:[], sessions:[], deadlines:[] };
+
+  // ── Clock ──────────────────────────────────────────────────────
+  setInterval(() => {
+    document.getElementById('admin-time').textContent =
+      new Date().toLocaleString();
+  }, 1000);
+
+  // ── Toast ─────────────────────────────────────────────────────
+  function toast(msg, type='success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = type;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 3000);
+  }
+
+  // ── Login ─────────────────────────────────────────────────────
+  async function adminLogin() {
+    const key = document.getElementById('admin-key').value.trim();
+    if (!key) return toast('Please enter the admin key', 'error');
+
+    // Test the key
+    const res = await fetch(`${API}/admin/users`, {
+      headers: { 'x-admin-key': key }
+    });
+    if (!res.ok) return toast('Invalid admin key!', 'error');
+
+    adminKey = key;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('admin-panel').style.display = 'block';
+    loadAll();
+  }
+
+  function adminLogout() {
+    adminKey = '';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('admin-panel').style.display = 'none';
+    document.getElementById('admin-key').value = '';
+  }
+
+  // ── Load all data ─────────────────────────────────────────────
+  async function loadAll() {
+    const headers = { 'x-admin-key': adminKey };
+    const [u, s, t, ss, d] = await Promise.all([
+      fetch(`${API}/admin/users`,     { headers }).then(r=>r.json()),
+      fetch(`${API}/admin/subjects`,  { headers }).then(r=>r.json()),
+      fetch(`${API}/admin/tasks`,     { headers }).then(r=>r.json()),
+      fetch(`${API}/admin/sessions`,  { headers }).then(r=>r.json()),
+      fetch(`${API}/admin/deadlines`, { headers }).then(r=>r.json()),
+    ]);
+    allData = { users:u, subjects:s, tasks:t, sessions:ss, deadlines:d };
+
+    // Update stats
+    document.getElementById('stat-users').textContent     = u.length;
+    document.getElementById('stat-subjects').textContent  = s.length;
+    document.getElementById('stat-tasks').textContent     = t.length;
+    document.getElementById('stat-sessions').textContent  = ss.length;
+    document.getElementById('stat-deadlines').textContent = d.length;
+
+    renderTab(currentTab);
+  }
+
+  // ── Switch tab ────────────────────────────────────────────────
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    renderTab(tab);
+  }
+
+  // ── Render tab ────────────────────────────────────────────────
+  function renderTab(tab) {
+    const data = allData[tab];
+    const titles = {
+      users:'All Users', subjects:'All Subjects',
+      tasks:'All Tasks', sessions:'All Study Sessions',
+      deadlines:'All Deadlines'
+    };
+    document.getElementById('table-title').textContent = titles[tab];
+    document.getElementById('table-count').textContent = `${data.length} records`;
+
+    if (data.length === 0) {
+      document.getElementById('table-body').innerHTML =
+        '<div class="empty">No records found.</div>';
+      return;
+    }
+
+    let html = '<table>';
+
+    if (tab === 'users') {
+      html += `<tr><th>#</th><th>Username</th><th>Email</th><th>Registered</th><th>Action</th></tr>`;
+      data.forEach(u => {
+        html += `<tr>
+          <td>${u.user_id}</td>
+          <td><b>${u.username}</b></td>
+          <td>${u.email}</td>
+          <td>${u.created_at}</td>
+          <td><button class="del-btn" onclick="deleteRecord('users',${u.user_id})">🗑 Delete</button></td>
+        </tr>`;
+      });
+    }
+
+    else if (tab === 'subjects') {
+      html += `<tr><th>#</th><th>Subject</th><th>Color</th><th>User</th><th>Created</th><th>Action</th></tr>`;
+      data.forEach(s => {
+        html += `<tr>
+          <td>${s.subject_id}</td>
+          <td><span style="display:inline-flex;align-items:center;gap:8px;">
+            <span style="width:12px;height:12px;border-radius:50%;background:${s.color_tag};display:inline-block;"></span>
+            ${s.subject_name}
+          </span></td>
+          <td>${s.color_tag}</td>
+          <td>${s.username}</td>
+          <td>${s.created_at}</td>
+          <td><button class="del-btn" onclick="deleteRecord('subjects',${s.subject_id})">🗑 Delete</button></td>
+        </tr>`;
+      });
+    }
+
+    else if (tab === 'tasks') {
+      html += `<tr><th>#</th><th>Title</th><th>Priority</th><th>Status</th><th>User</th><th>Action</th></tr>`;
+      data.forEach(t => {
+        html += `<tr>
+          <td>${t.task_id}</td>
+          <td>${t.title}</td>
+          <td><span class="badge badge-${t.priority}">${t.priority}</span></td>
+          <td><span class="badge ${t.status==='done'?'badge-done':'badge-pending'}">${t.status}</span></td>
+          <td>${t.username}</td>
+          <td><button class="del-btn" onclick="deleteRecord('tasks',${t.task_id})">🗑 Delete</button></td>
+        </tr>`;
+      });
+    }
+
+    else if (tab === 'sessions') {
+      html += `<tr><th>#</th><th>User</th><th>Duration</th><th>Start Time</th><th>End Time</th><th>Action</th></tr>`;
+      data.forEach(s => {
+        html += `<tr>
+          <td>${s.session_id}</td>
+          <td>${s.username}</td>
+          <td><b>${s.duration_mins} mins</b></td>
+          <td>${s.start_time || '—'}</td>
+          <td>${s.end_time   || '—'}</td>
+          <td><button class="del-btn" onclick="deleteRecord('sessions',${s.session_id})">🗑 Delete</button></td>
+        </tr>`;
+      });
+    }
+
+    else if (tab === 'deadlines') {
+      html += `<tr><th>#</th><th>Title</th><th>Due Date</th><th>Status</th><th>User</th><th>Action</th></tr>`;
+      data.forEach(d => {
+        html += `<tr>
+          <td>${d.deadline_id}</td>
+          <td>${d.title}</td>
+          <td>${d.due_date}</td>
+          <td><span class="badge ${d.is_done?'badge-done':'badge-pending'}">${d.is_done?'Done':'Pending'}</span></td>
+          <td>${d.username}</td>
+          <td><button class="del-btn" onclick="deleteRecord('deadlines',${d.deadline_id})">🗑 Delete</button></td>
+        </tr>`;
+      });
+    }
+
+    html += '</table>';
+    document.getElementById('table-body').innerHTML = html;
+  }
+
+  // ── Delete record ─────────────────────────────────────────────
+  async function deleteRecord(type, id) {
+    if (!confirm(`Are you sure you want to delete this ${type.slice(0,-1)}?`)) return;
+
+    const endpoints = {
+      users:'users', subjects:'subjects',
+      tasks:'tasks', sessions:'sessions', deadlines:'deadlines'
+    };
+
+    const res = await fetch(`${API}/admin/${endpoints[type]}/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-admin-key': adminKey }
+    });
+    const data = await res.json();
+    toast(data.message, 'success');
+    loadAll();
+  }
+</script>
+
+</body>
+</html>
