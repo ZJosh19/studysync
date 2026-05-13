@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 // Import database (creates tables on startup)
-require('./config/db');
+const db = require('./config/db');
 
 const app = express();
 
